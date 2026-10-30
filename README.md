@@ -75,6 +75,18 @@ Mở Terminal trong thư mục `zalo-on-linux` rồi gõ:
 Mở Terminal trong thư mục `zalo-on-linux` và gõ `./run-zalo.sh` để xem thông báo
 lỗi, rồi gửi cho người hỗ trợ.
 
+**Zalo bị treo / đăng nhập xong không vào được / lỗi lạ?**
+Mở Terminal và gõ lệnh dưới đây (khi đang lỗi hoặc ngay sau khi tắt Zalo):
+
+| Cài bằng | Gõ lệnh |
+|---|---|
+| file `.deb` | `zalo-on-linux --debug` |
+| `./install.sh` | `cd zalo-on-linux && ./run-zalo.sh --debug` |
+
+Lệnh sẽ tạo file `~/zalo-debug-<ngày-giờ>.txt` (gồm thông tin máy, log của Zalo,
+các thư viện không chạy được trên máy). Gửi file đó cho người hỗ trợ. File có thể
+chứa ID tài khoản Zalo nhưng **không** chứa mật khẩu hay nội dung tin nhắn.
+
 **Muốn giao diện tối (Dark Mode)?**
 Đã có sẵn **ZaDark** — bấm icon hình mặt trăng ở thanh bên trái trong Zalo để bật/tắt
 và tuỳ chỉnh (phông chữ, cỡ chữ, dịch tin nhắn…).

@@ -17,6 +17,7 @@
 //	zalo tray apply|remove|status [appDir]                  tray-linux.mjs
 //	zalo zadark apply|remove [appDir]                       zadark.mjs
 //	zalo audit [--staged]                                   audit-publication.mjs
+//	zalo debug [-o FILE] [--config JSON] [--app-dir DIR]    (Go only) write a debug report
 package main
 
 import (
@@ -30,6 +31,7 @@ import (
 	"zalo-linux-native/internal/audit"
 	"zalo-linux-native/internal/autoconfig"
 	"zalo-linux-native/internal/config"
+	"zalo-linux-native/internal/debugreport"
 	"zalo-linux-native/internal/desktop"
 	"zalo-linux-native/internal/install"
 	"zalo-linux-native/internal/launcher"
@@ -77,6 +79,8 @@ func main() {
 		fatal(zadark.Run(cwd, args))
 	case "audit":
 		os.Exit(audit.Run(cwd, args))
+	case "debug":
+		fatal(debugreport.Run(args))
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -87,6 +91,8 @@ func main() {
 }
 
 func cmdLaunch(args []string) {
+	// Menu launches have no terminal; keep their output for `zalo debug`.
+	debugreport.RedirectOutputToLog()
 	// Mirror native-launch.mjs main(): only --check is an accepted flag, and at
 	// most one positional config path is allowed.
 	nonCheck := 0
@@ -225,5 +231,6 @@ Commands:
   tray apply|remove|status [appDir]     Toggle the tray update entry
   zadark apply|remove [appDir]          Toggle the ZaDark dark theme
   audit [--staged]                      Scan the publication tree for secrets
+  debug [-o FILE] [--config JSON]       Write a debug report (logs, glibc, native modules)
 `)
 }

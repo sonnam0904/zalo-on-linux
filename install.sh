@@ -111,6 +111,11 @@ cat > "$LAUNCHER" <<'WRAP'
 set -euo pipefail
 APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$APP_DIR"
+# ./run-zalo.sh --debug [-o FILE]: gom log + thông tin máy vào 1 file để gửi hỗ trợ.
+if [[ "${1:-}" == "--debug" ]]; then
+    shift
+    exec "$APP_DIR/zalo" debug --config "$APP_DIR/launch.json" "$@"
+fi
 # Linux: ép hộp thoại chọn/lưu file của Chromium đi qua xdg-desktop-portal, để nó
 # nổi lên trên cửa sổ Zalo thay vì bị đẩy ra sau (hộp thoại GTK trực tiếp hay lỗi này).
 export GTK_USE_PORTAL=1

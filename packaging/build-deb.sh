@@ -58,6 +58,12 @@ APP_DIR=/opt/zalo-on-linux
 CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zalo-on-linux"
 mkdir -p "$CONF_DIR"
 
+# zalo-on-linux --debug [-o FILE]: gom log + thông tin máy vào 1 file để gửi hỗ trợ.
+if [[ "${1:-}" == "--debug" ]]; then
+    shift
+    exec "$APP_DIR/zalo" debug --config "$CONF_DIR/launch.json" "$@"
+fi
+
 # Linux: hộp thoại chọn/lưu file nổi lên trên cửa sổ (qua xdg-desktop-portal).
 export GTK_USE_PORTAL=1
 
