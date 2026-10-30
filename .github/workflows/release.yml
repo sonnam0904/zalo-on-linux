@@ -39,6 +39,9 @@ jobs:
           default_bump: false          # không có feat/fix -> không bump -> không release
           release_branches: main
           tag_prefix: v
+          dry_run: true                # CHỈ tính version, KHÔNG tạo tag ở đây.
+                                       # Tag được tạo cùng lúc với release ở bước dưới
+                                       # (nguyên tử) -> không bị kẹt "tag mồ côi".
 
       - name: Không có gì để release
         if: steps.version.outputs.new_tag == ''
