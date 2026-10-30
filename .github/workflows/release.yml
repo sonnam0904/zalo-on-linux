@@ -53,6 +53,17 @@ jobs:
         with:
           go-version: '1.25'
 
+      - name: Kiểm tra glibc của SQLite binding
+        if: steps.version.outputs.new_tag != ''
+        # Binding build trên distro mới (glibc >= 2.38) không load được trên
+        # Ubuntu 22.04 -> DB không mở, Zalo kẹt ngay sau đăng nhập.
+        # Build lại bằng native/nativelibs/sqlite3/build-linux.sh.
+        run: |
+          f=native/nativelibs/sqlite3/binding/napi-v6-linux-x64/node_sqlite3.node
+          need=$(objdump -T "$f" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -1)
+          echo "$f cần GLIBC_$need"
+          [ "$(printf '%s\n2.31\n' "$need" | sort -V | tail -1)" = "2.31" ] || { echo "::error::$f cần GLIBC_$need (> 2.31)"; exit 1; }
+
       - name: Build .deb
         if: steps.version.outputs.new_tag != ''
         run: |
