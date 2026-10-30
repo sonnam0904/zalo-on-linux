@@ -98,6 +98,9 @@ func BuildLaunchSpec(c *config.Config, root string, inherited []string) LaunchSp
 	if c.CDPPort != nil {
 		args = append(args, "--remote-debugging-address=127.0.0.1", fmt.Sprintf("--remote-debugging-port=%d", *c.CDPPort))
 	}
+	// Chromium logging puts every renderer/worker console message and uncaught
+	// error on stderr, which the launcher keeps for `zalo debug`.
+	args = append(args, "--enable-logging=stderr")
 	args = append(args, c.AppDir)
 
 	envSlice := make([]string, 0, len(order))

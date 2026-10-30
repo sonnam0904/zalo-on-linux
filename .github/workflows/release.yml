@@ -64,6 +64,18 @@ jobs:
           echo "$f cần GLIBC_$need"
           [ "$(printf '%s\n2.31\n' "$need" | sort -V | tail -1)" = "2.31" ] || { echo "::error::$f cần GLIBC_$need (> 2.31)"; exit 1; }
 
+      - name: Kiểm tra file native mà nativelibs/index.js require
+        if: steps.version.outputs.new_tag != ''
+        # Thiếu db-cross-v4/dist/binding.js (từng bị .gitignore `dist/` nuốt)
+        # -> shared worker không đăng ký DECRYPT_BACKUP -> "Đồng bộ không thành công".
+        run: |
+          cd native/nativelibs
+          missing=0
+          for p in $(grep -o "require('[^']*')" index.js | sed "s/require('\(.*\)')/\1/" | grep -v win-utils); do
+            [ -e "$p" ] || { echo "::error::native/nativelibs/index.js require file thiếu: $p"; missing=1; }
+          done
+          exit $missing
+
       - name: Build .deb
         if: steps.version.outputs.new_tag != ''
         run: |

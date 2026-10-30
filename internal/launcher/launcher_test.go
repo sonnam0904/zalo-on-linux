@@ -76,4 +76,7 @@ func TestBuildLaunchSpecStripsAndAssigns(t *testing.T) {
 	if spec.Args[len(spec.Args)-1] != "/a" {
 		t.Errorf("last arg should be appDir, got %q", spec.Args[len(spec.Args)-1])
 	}
+	if spec.Args[len(spec.Args)-2] != "--enable-logging=stderr" {
+		t.Errorf("Chromium logging should be enabled, args %q", spec.Args)
+	}
 }

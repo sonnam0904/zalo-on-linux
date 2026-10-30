@@ -2103,7 +2103,7 @@ __SCRIPT_TYPE__ = "renderer",
                         params: t,
                         report: s
                     } = e;
-                    console.error("[SYNC] _decyptBackup: format="+t.format+" input="+t.inputPath+" output="+t.outputPath+" convCount="+t.numberOfConversationsCount+" key="+(t.privateKey||""));
+                    console.error("[SYNC] _decyptBackup: format="+t.format+" input="+t.inputPath+" output="+t.outputPath+" convCount="+t.numberOfConversationsCount);
                     return await Object(Qe.b)(t.outputPath), 0 === t.format ? this._decryptBackupFormat0(t.inputPath, t.outputPath, t.privateKey) : this._decryptBackupFormat1(t.inputPath, t.outputPath, t.privateKey, t.numberOfConversationsCount, s)
                 }
                 async _decryptBackupFormat0(e, t, s) {
@@ -2111,7 +2111,7 @@ __SCRIPT_TYPE__ = "renderer",
                         result: r,
                         err_message: a
                     } = ot.decompressAndDecryptDb(e, t, s);
-                    console.error("FORMAT0 decrypt result:", r, "err:", a, "input:", e, "output:", t, "key:", s);
+                    console.error("FORMAT0 decrypt result:", r, "err:", a, "input:", e, "output:", t);
                     return 0 === r ? t : Promise.reject({
                         error: r,
                         message: a

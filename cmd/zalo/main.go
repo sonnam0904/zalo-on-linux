@@ -91,8 +91,8 @@ func main() {
 }
 
 func cmdLaunch(args []string) {
-	// Menu launches have no terminal; keep their output for `zalo debug`.
-	debugreport.RedirectOutputToLog()
+	// Keep launcher + Electron output for `zalo debug`, terminal or not.
+	flushLaunchLog = debugreport.RedirectOutputToLog()
 	// Mirror native-launch.mjs main(): only --check is an accepted flag, and at
 	// most one positional config path is allowed.
 	nonCheck := 0
@@ -141,10 +141,12 @@ func cmdLaunch(args []string) {
 	}
 	if err := launcher.RunNativeLaunch(cfg, cfg.AppDir, check); err != nil {
 		if ee, ok := err.(launcher.ExitError); ok {
+			flushLaunchLog()
 			os.Exit(ee.Code)
 		}
 		launchFail(err.Error())
 	}
+	flushLaunchLog()
 }
 
 func cmdAutoconfig(cwd string, args []string) {
@@ -202,8 +204,12 @@ func cmdPackagedLaunch(args []string) {
 	}
 }
 
+// flushLaunchLog drains the launcher log pipe; set by cmdLaunch.
+var flushLaunchLog = func() {}
+
 func launchFail(msg string) {
 	fmt.Fprintf(os.Stderr, "Native launch failed: %s\n", msg)
+	flushLaunchLog()
 	os.Exit(1)
 }
 

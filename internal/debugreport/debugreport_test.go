@@ -99,3 +99,29 @@ func TestParseZlog(t *testing.T) {
 		t.Errorf("String() = %q", s)
 	}
 }
+
+func TestWriteConsoleErrors(t *testing.T) {
+	log := strings.Join([]string{
+		`[82924:1030/215150.600458:INFO:CONSOLE(1)] "LOG-info", source: data:text/html,<script>console.error("x")</script> (1)`,
+		`[82924:1030/215150.601390:INFO:CONSOLE(1)] "REQ-FAIL Cannot find module './db-cross-v4/dist/binding.js'", source: shared-worker.js (1)`,
+		`[82924:1030/215151.601390:INFO:CONSOLE(1)] "REQ-FAIL Cannot find module './db-cross-v4/dist/binding.js'", source: shared-worker.js (1)`,
+		`[82924:1030/215150.651915:INFO:CONSOLE(1)] "Uncaught Error: UNCAUGHT-boom", source: app.js (1)`,
+		`[82751:1030/215142.488792:WARNING:application_info_linux.cc(71)] No version found.`,
+		`[82751:1030/215142.488792:ERROR:gpu_init.cc(523)] Passthrough is not supported`,
+		`Starting experimental native voice; video is disabled.`,
+		`Native launch failed: Selected source is unavailable`,
+	}, "\n")
+	var b strings.Builder
+	writeConsoleErrors(&b, log)
+	got := b.String()
+	for _, want := range []string{"Cannot find module", "(x2)", "UNCAUGHT-boom", "Passthrough is not supported", "Native launch failed"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	for _, unwanted := range []string{"LOG-info", "No version found", "Starting experimental"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("unexpected %q in:\n%s", unwanted, got)
+		}
+	}
+}

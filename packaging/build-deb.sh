@@ -38,7 +38,7 @@ mkdir -p "$OPT"
 rsync -a \
   --exclude='.git' --exclude='.github' --exclude='packaging' \
   --exclude='.codegraph' --exclude='openwiki' --exclude='node_modules' \
-  --exclude='dist' --exclude='launch.json' --exclude='run-zalo.sh' \
+  --exclude='/dist' --exclude='launch.json' --exclude='run-zalo.sh' \
   --exclude='*.deb' --exclude='*.log' \
   "$REPO"/ "$OPT"/
 
@@ -61,7 +61,9 @@ mkdir -p "$CONF_DIR"
 # zalo-on-linux --debug [-o FILE]: gom log + thông tin máy vào 1 file để gửi hỗ trợ.
 if [[ "${1:-}" == "--debug" ]]; then
     shift
-    exec "$APP_DIR/zalo" debug --config "$CONF_DIR/launch.json" "$@"
+    # Không truyền --config: dưới sudo $HOME là /root, `zalo debug` tự đọc
+    # dữ liệu của SUDO_USER.
+    exec "$APP_DIR/zalo" debug "$@"
 fi
 
 # Linux: hộp thoại chọn/lưu file nổi lên trên cửa sổ (qua xdg-desktop-portal).

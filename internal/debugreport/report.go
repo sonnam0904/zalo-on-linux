@@ -13,9 +13,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -31,6 +34,22 @@ type options struct {
 	appDir     string
 	zaloData   string
 	lines      int
+
+	launcherLog string
+	sudoUser    string // set when reporting on behalf of the user behind sudo
+}
+
+// sudoInvoker returns the account that ran `sudo zalo debug`, or nil.
+func sudoInvoker() *user.User {
+	name := os.Getenv("SUDO_USER")
+	if os.Geteuid() != 0 || name == "" || name == "root" {
+		return nil
+	}
+	u, err := user.Lookup(name)
+	if err != nil {
+		return nil
+	}
+	return u
 }
 
 // Run parses `zalo debug` arguments, writes the report and prints its path.
@@ -53,20 +72,47 @@ func Run(args []string) error {
 	if configHome == "" {
 		configHome = filepath.Join(home, ".config")
 	}
+	o.launcherLog = LauncherLogPath()
+	// Under sudo, $HOME is root's, but the Zalo data worth reporting belongs to
+	// the user who invoked sudo.
+	owner := sudoInvoker()
+	if owner != nil {
+		home = owner.HomeDir
+		configHome = filepath.Join(home, ".config")
+		o.launcherLog = filepath.Join(home, ".local", "state", "zalo-on-linux", "launcher.log")
+		o.sudoUser = owner.Username
+	}
 	if o.configPath == "" {
 		o.configPath = filepath.Join(configHome, "zalo-on-linux", "launch.json")
 	}
 	if o.zaloData == "" {
 		o.zaloData = filepath.Join(configHome, "ZaloData")
 	}
+	// Without -o, fall back from $HOME (which may be read-only) to the current
+	// directory and then the temp dir.
+	candidates := []string{o.output}
 	if o.output == "" {
-		o.output = filepath.Join(home, "zalo-debug-"+time.Now().Format("20060102-150405")+".txt")
+		name := "zalo-debug-" + time.Now().Format("20060102-150405") + ".txt"
+		cwd, _ := os.Getwd()
+		candidates = []string{filepath.Join(home, name), filepath.Join(cwd, name), filepath.Join(os.TempDir(), name)}
 	}
 
 	var buf bytes.Buffer
 	writeReport(&buf, o)
-	if err := os.WriteFile(o.output, buf.Bytes(), 0o600); err != nil {
+	var err error
+	for _, path := range candidates {
+		if err = os.WriteFile(path, buf.Bytes(), 0o600); err == nil {
+			o.output = path
+			break
+		}
+	}
+	if err != nil {
 		return err
+	}
+	if owner != nil {
+		uid, _ := strconv.Atoi(owner.Uid)
+		gid, _ := strconv.Atoi(owner.Gid)
+		_ = os.Chown(o.output, uid, gid)
 	}
 	fmt.Printf("Đã ghi báo cáo debug: %s\n", o.output)
 	fmt.Println("Hãy gửi file này cho người hỗ trợ (file có thể chứa ID tài khoản Zalo, không chứa mật khẩu/tin nhắn).")
@@ -75,6 +121,11 @@ func Run(args []string) error {
 
 func writeReport(w io.Writer, o options) {
 	fmt.Fprintf(w, "Zalo for Linux — báo cáo debug\nThời điểm: %s\n", time.Now().Format(time.RFC3339))
+	if o.sudoUser != "" {
+		fmt.Fprintf(w, "Chạy bằng sudo — đọc dữ liệu của user %q.\n", o.sudoUser)
+	} else if os.Geteuid() == 0 {
+		fmt.Fprintln(w, "CẢNH BÁO: chạy bằng root — dữ liệu Zalo của user thường KHÔNG được đọc. Hãy chạy lại không có sudo.")
+	}
 
 	section(w, "Hệ thống")
 	glibc := SystemGlibc()
@@ -132,8 +183,16 @@ func writeReport(w io.Writer, o options) {
 	section(w, "Lỗi trong log Zalo (gộp trùng, theo lần xuất hiện đầu)")
 	writeErrorSummary(w, logs)
 
-	section(w, "Launcher log: "+LauncherLogPath())
-	fmt.Fprintln(w, orUnknown(tailLines(readSmall(LauncherLogPath()), 200)))
+	launcherText := readSmall(o.launcherLog+".old") + readSmall(o.launcherLog)
+	section(w, "Lỗi console/Chromium (gộp trùng, từ launcher log)")
+	writeConsoleErrors(w, launcherText)
+
+	section(w, "Launcher log (300 dòng cuối): "+o.launcherLog)
+	fmt.Fprintln(w, orUnknown(tailLines(launcherText, 300)))
+
+	section(w, "Thiết bị âm thanh (pactl)")
+	fmt.Fprintf(w, "--- sources (mic)\n%s\n--- sinks (loa)\n%s\n",
+		commandLine("pactl", "list", "short", "sources"), commandLine("pactl", "list", "short", "sinks"))
 
 	section(w, "ZaloData: "+o.zaloData)
 	for _, name := range []string{"startup.log", "cal/migrate-log.log"} {
@@ -141,6 +200,11 @@ func writeReport(w io.Writer, o options) {
 	}
 	dumps, _ := filepath.Glob(filepath.Join(o.zaloData, "Crashpad", "completed", "*.dmp"))
 	kv(w, "Crash dumps", fmt.Sprint(len(dumps)))
+	for _, d := range dumps {
+		if st, err := os.Stat(d); err == nil {
+			fmt.Fprintf(w, "  %s  %s  %d bytes\n", st.ModTime().Format("2006-01-02 15:04:05"), d, st.Size())
+		}
+	}
 
 	for _, l := range logs {
 		section(w, fmt.Sprintf("Log Zalo: %s (%d dòng, hiện %d dòng mới nhất)", l.name, len(l.entries), min(len(l.entries), o.lines)))
@@ -157,6 +221,65 @@ func writeReport(w io.Writer, o options) {
 type zlogFile struct {
 	name    string
 	entries []ZlogEntry
+}
+
+// chromiumLogPrefix matches "[pid:MMDD/HHMMSS.micro:LEVEL:file(line)] ".
+var chromiumLogPrefix = regexp.MustCompile(`^\[\d+:\d+/[\d.]+:([A-Z]+):([^\]]*)\] `)
+
+var consoleErrorHint = regexp.MustCompile(`(?i)uncaught|error|exception|fail|cannot find module|not found|unhandled|ENOENT|EACCES|denied`)
+
+// writeConsoleErrors lists distinct error-looking lines from the launcher log:
+// Chromium ERROR/FATAL entries and console messages (which Chromium logs as
+// INFO:CONSOLE whatever their level) that mention an error, plus Node errors
+// from the main process.
+func writeConsoleErrors(w io.Writer, text string) {
+	type group struct {
+		first string
+		count int
+	}
+	var groups []*group
+	byKey := map[string]*group{}
+	sc := bufio.NewScanner(strings.NewReader(text))
+	sc.Buffer(make([]byte, 64<<10), 1<<20)
+	for sc.Scan() {
+		line := sc.Text()
+		// Judge only the message: the trailing ", source: <url>" may contain
+		// anything (a data: URL with the page's own code, for one).
+		msg, _, _ := strings.Cut(line, `", source: `)
+		key := msg
+		if m := chromiumLogPrefix.FindStringSubmatch(msg); m != nil {
+			key = msg[len(m[0]):]
+			isConsole := strings.HasPrefix(m[2], "CONSOLE")
+			if !(m[1] == "ERROR" || m[1] == "FATAL" || isConsole && consoleErrorHint.MatchString(key)) {
+				continue
+			}
+			key = m[2] + " " + key
+		} else if !consoleErrorHint.MatchString(msg) {
+			continue
+		}
+		if g := byKey[key]; g != nil {
+			g.count++
+			continue
+		}
+		g := &group{first: line, count: 1}
+		byKey[key] = g
+		groups = append(groups, g)
+	}
+	if len(groups) == 0 {
+		fmt.Fprintln(w, "(không có)")
+		return
+	}
+	for i, g := range groups {
+		if i == maxErrorSummary {
+			fmt.Fprintf(w, "... và %d lỗi khác\n", len(groups)-i)
+			break
+		}
+		first := g.first
+		if len(first) > 500 {
+			first = first[:500] + " …"
+		}
+		fmt.Fprintf(w, "%s (x%d)\n", first, g.count)
+	}
 }
 
 // writeErrorSummary lists each distinct error once, earliest first, so a root
@@ -199,7 +322,11 @@ func writeErrorSummary(w io.Writer, logs []zlogFile) {
 }
 
 func readZlogs(dir string) []zlogFile {
+	// The client writes <process>.zlog, or <process>.calf once the "calf"
+	// rollout (zlog-config.json enable_calf) is on; the record format is shared.
 	paths, _ := filepath.Glob(filepath.Join(dir, "*.zlog"))
+	calf, _ := filepath.Glob(filepath.Join(dir, "*.calf"))
+	paths = append(paths, calf...)
 	sort.Strings(paths)
 	var out []zlogFile
 	for _, p := range paths {
@@ -207,7 +334,7 @@ func readZlogs(dir string) []zlogFile {
 		if err != nil {
 			continue
 		}
-		out = append(out, zlogFile{name: strings.TrimSuffix(filepath.Base(p), ".zlog"), entries: ParseZlog(data)})
+		out = append(out, zlogFile{name: filepath.Base(p), entries: ParseZlog(data)})
 	}
 	return out
 }
