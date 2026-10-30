@@ -1,0 +1,34 @@
+const assert=require('node:assert/strict');
+const {NativeIdentity}=require('./native-identity');
+const identity=new NativeIdentity();
+assert.throws(()=>identity.resolve(),/unavailable/);
+identity.setAccount('9999999999999999999');
+const ticket=identity.ticket();identity.remember(ticket,123);
+assert.equal(identity.resolve(),123);
+identity.setAccount('9999999999999999999');assert.equal(identity.resolve(ticket),123);
+identity.setAccount('8888888888888888888');
+assert.throws(()=>identity.resolve(),/unavailable/);
+assert.throws(()=>identity.remember(ticket,123),/changed/);
+const fresh=identity.ticket();
+for(const bad of [0,-1,2**32,'123',NaN])assert.throws(()=>identity.remember(fresh,bad),/Invalid/);
+identity.remember(fresh,456);
+assert.throws(()=>identity.remember(fresh,789),/Conflicting/);
+assert.throws(()=>identity.resolve(),/unavailable/);
+assert.throws(()=>identity.remember(fresh,456),/changed/);
+identity.remember(identity.ticket(),456);
+identity.setAccount(null);assert.throws(()=>identity.resolve(),/unavailable/);
+assert.equal(identity.account,null);
+console.log('PASS native identity: authenticated binding, repeated init, account-switch and conflict invalidation, no desktop-ID truncation');
+(async()=>{
+  const {OutgoingSetup}=require('./outgoing-setup');
+  const binding=new NativeIdentity();binding.setAccount('111');
+  let deliver,entered;
+  const requested=new Promise(resolve=>{entered=resolve;});
+  const setup=new OutgoingSetup({request:()=>new Promise(resolve=>{deliver=resolve;entered();}),cancel(){}},
+    {getContext:()=>binding.ticket(),onConfig:(config,{context})=>{binding.remember(context,config.nativeId);return {};}});
+  const call=setup.start({type:1,partner:[{id:'222'}]});
+  const rejected=assert.rejects(call,/account changed/);
+  await requested;binding.setAccount('333');deliver({nativeId:123});await rejected;
+  assert.throws(()=>binding.resolve(),/unavailable/);
+  console.log('PASS production setup context: delayed authenticated response cannot bind a replacement account');
+})().catch(error=>{console.error(error);process.exitCode=1;});

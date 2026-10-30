@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src https:; media-src 'none'; object-src 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zalo — Cuộc gọi</title><link rel="stylesheet" href="call-window.css"></head>
+<body><main>
+<section class="identity" aria-label="Cuộc gọi">
+<div class="avatar" aria-hidden="true"><img id="avatar-image" hidden alt=""><svg id="avatar-fallback" viewBox="0 0 64 64"><circle cx="32" cy="23" r="10"/><path d="M13 53c0-23 38-23 38 0"/></svg></div>
+<h1 id="name">Cuộc gọi Zalo</h1><p id="status" role="status">Đang kết nối…</p><time id="duration" hidden>00:00</time>
+</section>
+<canvas id="remote" hidden aria-label="Video từ người đang gọi"></canvas>
+<aside id="preview" hidden aria-label="Camera của bạn"><canvas id="local" aria-label="Hình ảnh của bạn"></canvas><span>Bạn</span></aside>
+<p id="error" hidden>Không thể tiếp tục cuộc gọi. Hãy kiểm tra kết nối mạng và thiết bị rồi thử lại.</p>
+<nav aria-label="Điều khiển cuộc gọi">
+<button id="camera" class="control" disabled aria-label="Tắt camera" title="Tắt camera" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-4v12l-6-4z"/><path id="camera-slash" d="m3 3 18 18" hidden/></svg></button>
+<button id="end" class="control end" aria-label="Kết thúc" title="Kết thúc"><svg viewBox="0 0 24 24"><path d="M3 15v-4c5-5 13-5 18 0v4l-5-1v-3a12 12 0 0 0-8 0v3z"/></svg></button>
+<button id="answer" class="control answer" hidden aria-label="Trả lời" title="Trả lời"><svg id="answer-voice" viewBox="0 0 24 24"><path d="m5 3 4 4-2 3c2 3 4 5 7 6l3-2 4 4-3 3C10 20 4 14 3 6z"/></svg><svg id="answer-video" viewBox="0 0 24 24" hidden><rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-4v12l-6-4z"/></svg><span id="answer-text" hidden>Video</span></button>
+<button id="mic" class="control" aria-label="Tắt mic" title="Tắt mic" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/><path id="mic-slash" d="m3 3 18 18" hidden/></svg></button>
+</nav></main><script type="module" src="call-window-renderer.mjs"></script></body></html>

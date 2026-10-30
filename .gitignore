@@ -1,0 +1,22 @@
+# Chỉ số CodeGraph (cục bộ, nặng ~77MB — không đưa lên GitHub)
+.codegraph/
+
+# Tài liệu OpenWiki sinh tự động (nếu có)
+openwiki/
+
+# Sinh ra lúc cài đặt — mỗi máy một khác, KHÔNG commit:
+#  - launch.json: đường dẫn + thiết bị âm thanh riêng của từng máy (install.sh tự tạo)
+#  - run-zalo.sh: launcher có đường dẫn tuyệt đối (install.sh tự tạo)
+launch.json
+run-zalo.sh
+
+# Log
+*.log
+
+# Rác hệ thống
+.DS_Store
+Thumbs.db
+
+# Gói .deb build ra (CI/local)
+dist/
+*.deb
